@@ -55,7 +55,7 @@ class Peer:
         if received_message == 'OK':
             mensage = self.successor 
             connection_socket.sendall(mensage.encode())
-            self.successor = address # o novo nó agora é sucessor do nó antigo
+            self.successor = address[0] # o novo nó agora é sucessor do nó antigo
 
         # Fechar a conexão do socket de conexão
         connection_socket.close()
@@ -64,25 +64,25 @@ class Peer:
         listen_socket.close()
 
 def main():
-    id = random.randint(0, 10000)
+    id = random.randint(0, 10000) # talvez mude depois para adequar ao formato dht
     ip = input('Insira seu ip: ')
     
     peer = Peer(id, ip)
     
-    while True:
-        menu = input('1 - Conexão\n2 - Não conectar \nEscolha: ')
-        if menu == '1':
-            ipRede = input('Insira o endereço de um nó na rede: ')
-            peer.connect(ipRede)
-            peer.statusNetwork = True
-        elif menu == '2':
-            break
+    menu = input('1 - Conexão\n2 - Não conectar \nEscolha: ')
+    if menu == '1':
+        ipRede = input('Insira o endereço de um nó na rede: ')
+        peer.connect(ipRede)
+        peer.statusNetwork = True
         
-    peer.receive_connection()
+    peer.receive_connection() 
+    # a partir desse momento o nó está inserido na rede e pronto para compartilhamento de arquivos
     
     while True:
-        menu = input('1 - Sair da rede \nEscolha: ')
-        if menu == 1: 
+        menu = input('1 - Exibir sucessor e anterior\n2 - Sair da rede \nEscolha: ')
+        if menu == '1':
+            print('\nSucessor = {}\nAnterior = {}'.format(peer.successor, peer.previous))
+        elif menu == '2': 
             print('sair da rede')
             # sair da rede
             
