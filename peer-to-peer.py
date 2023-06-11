@@ -10,8 +10,8 @@ class Peer:
         self.ip_address = ip_address
         self.successor = ip_address # endereço do sucessor
         self.data = {}  # Dados armazenados no nó
-        self.statusNetwork = False
-        self.statusNetworkCondition = threading.Condition()  
+        self.statusNetwork = False # status pra saber se o nó esta na rede
+        self.statusNetworkCondition = threading.Condition() # serve para saber se a status network mudou
         
         #self.lock = threading.Lock() # chamando self.lock.acquire(). Após concluir as operações nos dados protegidos, a thread deve liberar o bloqueio chamando self.lock.release(), permitindo que outras threads possam adquiri-lo.
     
@@ -62,9 +62,9 @@ class Peer:
                     peer_socket.sendall(message.encode()) # manda uma mensagem de veirficacao
                               
                 except socket.timeout:
-                    print('\nO sucessor saiu da rede')
+                    print('\nO sucessor saiu da rede') # aqui colocar o tratamento da saida do sucessor
                 except ConnectionRefusedError:
-                    print('A conexão com o sucessor falhou')
+                    print('A conexão com o sucessor falhou') # aqui colocar o tratamento da saida do sucessor
                 finally:
                     peer_socket.close()
                 time.sleep(5) # manda mensagem de verificacao a cada 5 segundos
@@ -93,7 +93,7 @@ class Peer:
                 self.successor = received_message[1] # o novo nó agora é sucessor do nó antigo  
                 self.statusNetwork = True
                 with self.statusNetworkCondition:
-                    self.statusNetworkCondition.notify_all()
+                    self.statusNetworkCondition.notify_all() # notifica as threads que mudou a variavel network condition -> resolve o problema de verification nao inciar no primeiro nó da rede
                 print("Conexão recebida de:", address)
              # Fechar a conexão do socket de conexão
             connection_socket.close()
