@@ -115,14 +115,15 @@ class Peer:
             if received_message[0] == 'response':
                 name = received_message[2]
                 number = received_message[1]
+                sendBy = received_message[3]
                 self.put(name, number)
-                print('Contato {}:{} adicionado'.format(name, number))
+                print('\nContato {} : {} enviado pelo dispositivo de IP: {} e adicionado na lista telefonica.'.format(name, number, sendBy))
             if received_message[0] == 'search': 
                 connection_socket.close()
                 nameContact = received_message[1]
                 addressRequest = received_message[2]
                 if self.search(nameContact):
-                    mensage = 'response {} {}'.format(self.search(nameContact), nameContact)
+                    mensage = 'response {} {} {}'.format(self.search(nameContact), nameContact, self.ipAddress)
                     self.send_data(addressRequest, mensage)                
                 elif self.successor == addressRequest:
                     self.send_data(addressRequest, 'NotFound contact')
@@ -166,7 +167,7 @@ def main():
     while True:
         # criar uma thred para responder uma verificacao para saber se o peer ainda esta na rede
         if peer.statusNetwork:
-            menu = input('1 - Exibir sucessor e anterior\n2 - Procurar contato\n3 - Adicionar contato\n4 - Sair da rede\ \nEscolha: ')
+            menu = input('1 - Exibir sucessor e anterior\n2 - Procurar contato\n3 - Adicionar contato\n4 - Lista telefonica\n5 - Sair da rede\ \nEscolha: ')
             if menu == '1':
                 print('\nSucessor = {}\nStatus: {}'.format(peer.successor, peer.statusNetwork))
             elif menu == '2':
@@ -179,7 +180,10 @@ def main():
                 name = input('Nome: ')
                 number = input('Número: ')
                 peer.put(name, number)
-            elif menu == '4': 
+            elif menu == '4':
+                for contato in peer.data:
+                    print('{} : {}'.format(contato, peer.data[contato]))
+            elif menu == '5': 
                 peer.statusNetwork = False
                 break
             
