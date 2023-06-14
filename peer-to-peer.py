@@ -9,6 +9,8 @@ class Peer:
         self.nodeId = nodeId
         self.ipAddress = ip_address
         self.successor = ip_address # endereço do sucessor
+        self.successor_succesor = ip_address
+        self.previous = ip_address
         self.data = {}  # Dados armazenados no nó
         self.statusNetwork = False # status pra saber se o nó esta na rede
         self.statusNetworkCondition = threading.Condition() # serve para saber se a status network mudou
@@ -27,19 +29,14 @@ class Peer:
     # quando um novo nó se conectar ele tem que avisar ao sucessor dele para atualizar o previous. O previous serve pra alguma coisa?
     
     def connect_peer(self, ip_existing):
-        peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
-        existing_peer_address = (ip_existing, 5000)
-        
-        peer_socket.connect(existing_peer_address) # se conecta com o nó que já está na rede
-
-        message = 'connection {}'.format(self.ipAddress)
-        peer_socket.sendall(message.encode()) # manda uma mensagem para se conectar
-         
-        response = peer_socket.recv(1024)
-        successor_address = response.decode()
+        mensage = 'connection {}'.format(self.ipAddress)
+        successor_address = self.send_listen(mensage, ip_existing)
         
         self.successor = successor_address # sucessor é o sucessor nó que ja estava na rede
+        self.previous = ip_existing
+        
+        self.successor_succesor = self.send_listen('requestSuccessor {}'.format(self.ipAddress), self.successor)
+        
         self.statusNetwork = True 
          
     def put(self, name, number):
@@ -53,10 +50,10 @@ class Peer:
             while self.statusNetwork: 
                 try: 
                     self.send_data(self.successor, mensage = 'verification p2p')          
-                except socket.timeout:
-                    print('\nO sucessor saiu da rede') # aqui colocar o tratamento da saida do sucessor
-                except ConnectionRefusedError:
-                    print('A conexão com o sucessor falhou') # aqui colocar o tratamento da saida do sucessor
+                except:
+                    print('\nO sucessor saiu da rede')
+                    self.successor = self.successor_succesor
+                    self.successor_succesor = self.send_listen('requestSuccessor {}'.format(self.ipAddress), self.successor)
                 finally:
                     time.sleep(5) # manda mensagem de verificacao a cada 5 segundos
                
@@ -83,7 +80,23 @@ class Peer:
             addressSocket = (address, 5000)
             peer_socket.connect(addressSocket)
             peer_socket.sendall(mensage.encode())
-            peer_socket.close()        
+            peer_socket.close()     
+        
+    def send_listen(self, mensage, ipAddress):
+        with self.sendSocketLock:
+            peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            peer_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            
+            address = (ipAddress, 5000)
+            
+            peer_socket.connect(address) # se conecta com o nó que já está na rede
+
+            peer_socket.sendall(mensage.encode()) # manda uma mensagem para se conectar
+            
+            response = peer_socket.recv(1024)
+            
+            peer_socket.close()
+            return response.decode()   
     
     def search_next_peer(self, name, peer_address): 
         try:
@@ -108,27 +121,38 @@ class Peer:
             data = connection_socket.recv(1024)
             received_message = data.decode().split(' ')
             
+            if received_message[0] == 'requestSuccessor':
+                self.previous = received_message[1]
+                connection_socket.sendall(self.successor.encode()) 
+            
             if received_message[0] == 'verification':
                 continue
+            
             if received_message[0] == 'NotFound':
                 print('O contato não foi encontrado na rede')
+                
             if received_message[0] == 'response':
                 name = received_message[2]
                 number = received_message[1]
                 sendBy = received_message[3]
                 self.put(name, number)
                 print('\nContato {} : {} enviado pelo dispositivo de IP: {} e adicionado na lista telefonica.'.format(name, number, sendBy))
+            
             if received_message[0] == 'search': 
                 connection_socket.close()
                 nameContact = received_message[1]
                 addressRequest = received_message[2]
+                
                 if self.search(nameContact):
                     mensage = 'response {} {} {}'.format(self.search(nameContact), nameContact, self.ipAddress)
-                    self.send_data(addressRequest, mensage)                
+                    self.send_data(addressRequest, mensage)       
+                             
                 elif self.successor == addressRequest:
                     self.send_data(addressRequest, 'NotFound contact')
+                    
                 else:
                     self.search_next_peer(nameContact, addressRequest)
+                    
             if received_message[0] == 'connection': # algum peer quer se conectar com esse peer
                 mensage = self.successor  
                 connection_socket.sendall(mensage.encode()) # manda o sucessor 
@@ -169,7 +193,7 @@ def main():
         if peer.statusNetwork:
             menu = input('1 - Exibir sucessor e anterior\n2 - Procurar contato\n3 - Adicionar contato\n4 - Lista telefonica\n5 - Sair da rede\ \nEscolha: ')
             if menu == '1':
-                print('\nSucessor = {}\nStatus: {}'.format(peer.successor, peer.statusNetwork))
+                print('\nSucessor = {}\nAnterior: {}\nSucessor do sucessor: {}\nStatus: {}'.format(peer.successor, peer.previous, peer.successor_succesor, peer.statusNetwork))
             elif menu == '2':
                 name = input('Digite o nome do contato: ')
                 if peer.search(name):
